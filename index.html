@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Choice Party</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<style>
+:root{--bg:#0d0b13;--card:#17131f;--text:#fff;--muted:#aaa1b4;--pink:#ff4fa3;--purple:#8b5cf6;--green:#34d399;--red:#fb7185;--gold:#fbbf24}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#25152f,#0d0b13 55%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+main{max-width:900px;margin:auto;padding:24px 18px 60px}.logo{font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#ff8ac5;font-size:13px}.hero{text-align:center;padding:32px 0 20px}h1{font-size:clamp(42px,10vw,80px);line-height:.9;margin:12px 0;font-weight:950}h2{font-size:28px;margin:10px 0}.sub{color:var(--muted)}button,input{font:inherit}button{border:0;border-radius:16px;padding:15px 20px;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;box-shadow:0 10px 30px #0005}.secondary{background:#26202f;color:#fff}.danger{background:#4b1825;color:#fff}.card{background:#17131fdd;border:1px solid #ffffff12;border-radius:24px;padding:22px;margin:14px 0;box-shadow:0 15px 50px #0004}.hidden{display:none!important}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.center{text-align:center}.input{width:100%;background:#0f0c15;border:1px solid #ffffff18;color:#fff;border-radius:15px;padding:15px}.players{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}.player{background:#211b2b;border-radius:16px;padding:14px}.status{display:inline-flex;align-items:center;gap:8px;background:#1c1724;padding:9px 13px;border-radius:999px;color:#cfc7d7;font-size:13px}.dot{width:8px;height:8px;border-radius:50%;background:var(--green)}.people{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.person{min-height:90px;background:#25202d;border:2px solid transparent;color:#fff;border-radius:18px;padding:14px;text-align:left}.person.selected{border-color:var(--pink);background:#322036}.cats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.cat{min-height:130px;background:#15111b;border:1px dashed #ffffff25;border-radius:20px;padding:12px}.cat h3{margin:0 0 8px;font-size:14px}.slot{background:#2a2332;border-radius:12px;padding:10px;margin-top:7px}.kiss h3{color:#ff78b9}.marry h3{color:#f5cf58}.kill h3{color:#ff6f86}.fuck h3{color:#b48cff}.reveal{font-size:clamp(24px,5vw,48px);font-weight:900}.revealgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.result{padding:22px;border-radius:22px;background:#1a1522;text-align:center}.emoji{font-size:34px}.big{font-size:22px;font-weight:900;margin-top:5px}.qr{background:#fff;padding:12px;border-radius:18px;width:min(65vw,280px);margin:15px auto}.small{font-size:12px;color:var(--muted);word-break:break-all}.linkbox{background:#0f0c15;border-radius:14px;padding:12px;word-break:break-all;color:#d9d1df}
+</style>
+</head>
+<body>
+<main>
+<div id="app"></div>
+</main>
+<script>
+const PEOPLE=["Harry Styles","Timothée Chalamet","Jacob Elordi","Aidan Gallagher"];
+const CATS=[
+ {id:"kiss",emoji:"💋",name:"KISS"}, {id:"marry",emoji:"💍",name:"MARRY"},
+ {id:"kill",emoji:"🔪",name:"KILL"}, {id:"fuck",emoji:"❤️‍🔥",name:"FUCK"}
+];
+let peer=null, conns=[], hostConn=null, state={players:[],submitted:{},started:false,revealIndex:0};
+const app=document.getElementById("app");
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function home(){
+ app.innerHTML=`<div class="hero"><div class="logo">✨ PARTY GAME</div><h1>CHOICE<br>PARTY</h1><p class="sub">Kiss · Marry · Kill · Fuck</p></div>
+ <div class="card center"><h2>Kes sa oled?</h2><p class="sub">Üks inimene teeb HOSTI. Kõik teised liituvad telefoniga.</p>
+ <div class="row" style="justify-content:center"><button class="primary" onclick="host()">🎤 Olen HOST</button><button class="secondary" onclick="join()">📱 LIITUN</button></div></div>`;
+}
+function host(){
+ app.innerHTML=`<div class="hero"><div class="logo">HOST MODE</div><h1>CHOICE<br>PARTY</h1><p class="sub">Loo mäng ja näita seda suurel ekraanil.</p></div><div class="card center"><button class="primary" onclick="createRoom()">CREATE GAME</button></div>`;
+}
+function createRoom(){
+ peer=new Peer(undefined,{debug:0});
+ peer.on("open",id=>{
+   const url=location.href.split("#")[0]+"#join="+id;
+   app.innerHTML=`<div class="hero"><div class="logo">ROOM READY</div><h1>SCAN<br>TO JOIN</h1><p class="sub">Iga mängija skännib QR-i oma telefoniga.</p>
+   <canvas id="qr" class="qr"></canvas><div class="linkbox">${esc(url)}</div><p class="small">Room code: ${esc(id)}</p></div>
+   <div class="card"><div class="status"><span class="dot"></span><span id="count">0 mängijat liitunud</span></div><div id="plist" class="players" style="margin-top:12px"></div>
+   <div class="row" style="margin-top:18px"><button class="primary" onclick="startGame()">START GAME</button></div></div>`;
+   QRCode.toCanvas(document.getElementById("qr"),url,{width:260,margin:1});
+ });
+ peer.on("connection",c=>{
+   conns.push(c);
+   c.on("open",()=>{c.send({type:"sync",players:state.players,started:state.started});});
+   c.on("data",msg=>hostMsg(c,msg));
+   c.on("close",()=>{conns=conns.filter(x=>x!==c);});
+ });
+}
+function hostMsg(c,m){
+ if(m.type==="join"){
+   if(state.players.find(p=>p.id===m.id)) return;
+   state.players.push({id:m.id,name:m.name,submitted:false});
+   broadcast({type:"players",players:state.players});
+   renderHostLobby();
+ }
+ if(m.type==="submit"){
+   const p=state.players.find(p=>p.id===m.id); if(!p||state.submitted[p.id]) return;
+   state.submitted[p.id]=m.choices;p.submitted=true;broadcast({type:"submitted",id:p.id});renderHostGame();
+ }
+}
+function broadcast(m){conns.forEach(c=>{try{c.send(m)}catch(e){}})}
+function renderHostLobby(){
+ const c=document.getElementById("count"),p=document.getElementById("plist");
+ if(c)c.textContent=`${state.players.length} mängijat liitunud`;
+ if(p)p.innerHTML=state.players.map(x=>`<div class="player">👤 ${esc(x.name)}<br><span class="small">${x.submitted?"✓ valmis":"ootab..."}</span></div>`).join("");
+}
+function startGame(){
+ if(!state.players.length){alert("Oota vähemalt ühte mängijat!");return}
+ state.started=true;state.revealIndex=0;broadcast({type:"start"});renderHostGame();
+}
+function renderHostGame(){
+ app.innerHTML=`<div class="hero"><div class="logo">REVEAL SCREEN</div><h1>✨ REVEAL ✨</h1><p class="sub" id="rstatus"></p></div>
+ <div class="card center"><div id="revealArea"><p class="sub">Kõik panevad praegu oma valikud.</p></div>
+ <div class="row" style="justify-content:center;margin-top:18px"><button class="primary" onclick="revealNext()">REVEAL NEXT</button><button class="secondary" onclick="resetGame()">NEW GAME</button></div></div>
+ <div class="card"><h2>Mängijad</h2><div id="plist" class="players"></div></div>`;
+ renderHostPlayers();
+}
+function renderHostPlayers(){
+ const p=document.getElementById("plist");if(!p)return;
+ p.innerHTML=state.players.map(x=>`<div class="player">👤 ${esc(x.name)}<br><span class="small">${x.submitted?"✓ submitted":"⌛ valib..."}</span></div>`).join("");
+ const done=Object.keys(state.submitted).length;
+ const rs=document.getElementById("rstatus");if(rs)rs.textContent=`${done}/${state.players.length} vastust saadaval`;
+}
+function revealNext(){
+ const ready=state.players.filter(p=>state.submitted[p.id]);
+ if(!ready.length){alert("Keegi pole veel vastust saatnud.");return}
+ if(state.revealIndex>=ready.length){alert("Kõik valmis mängijad on juba revealitud!");return}
+ const p=ready[state.revealIndex++],ch=state.submitted[p.id];
+ document.getElementById("revealArea").innerHTML=`<div class="reveal">${esc(p.name)}’S CHOICES</div><div class="revealgrid" style="margin-top:18px">${CATS.map(c=>`<div class="result ${c.id}"><div class="emoji">${c.emoji}</div><div class="small">${c.name}</div><div class="big">${esc(ch[c.id])}</div></div>`).join("")}</div>`;
+}
+function resetGame(){location.reload()}
+function join(){
+ const room=location.hash.split("join=")[1];
+ if(!room){app.innerHTML=`<div class="hero"><h1>LIITU</h1><p class="sub">Sul peab olema hosti QR-koodi link.</p><button class="secondary" onclick="home()">TAGASI</button></div>`;return}
+ app.innerHTML=`<div class="hero"><div class="logo">JOIN GAME</div><h1>WHO<br>ARE YOU?</h1></div>
+ <div class="card"><input id="name" class="input" maxlength="30" placeholder="Sinu nimi"><button class="primary" style="width:100%;margin-top:12px" onclick="connect('${esc(room)}')">JOIN ✨</button></div>`;
+}
+function connect(room){
+ const name=document.getElementById("name").value.trim();if(!name){alert("Sisesta nimi!");return}
+ hostConn=new Peer();hostConn.on("open",id=>{
+   hostConn=hostConn.connect(room,{reliable:true});
+   hostConn.on("open",()=>{hostConn.send({type:"join",id,name});waiting(name)});
+   hostConn.on("data",m=>playerMsg(m,name,id));
+ });
+ hostConn.on("error",e=>alert("Ühendus ebaõnnestus. Ava hosti QR-link uuesti."));
+}
+function waiting(name){
+ app.innerHTML=`<div class="hero"><div class="logo">YOU ARE IN</div><h1>HEY,<br>${esc(name)} 👋</h1><p class="sub">Oota, kuni host mängu alustab.</p></div><div class="card center"><div class="status"><span class="dot"></span> Ühendatud</div></div>`;
+}
+function playerMsg(m,name,id){
+ if(m.type==="start") showChoices(name,id);
+ if(m.type==="sync"&&m.started) showChoices(name,id);
+}
+let myChoices={};
+function showChoices(name,id){
+ myChoices={};
+ app.innerHTML=`<div class="hero"><div class="logo">YOUR TURN</div><h1>CHOOSE<br>YOUR 4</h1><p class="sub">Vali iga inimese jaoks üks kategooria. Iga inimene peab olema kasutatud täpselt ühe korra.</p></div>
+ <div id="pick" class="card"></div><button class="primary" style="width:100%" onclick="submitChoices('${esc(id)}')">SUBMIT MY CHOICES 🔒</button>`;
+ renderPicker();
+}
+function renderPicker(){
+ const el=document.getElementById("pick");
+ el.innerHTML=`<div class="people">${PEOPLE.map((x,i)=>`<button class="person ${Object.values(myChoices).includes(x)?"selected":""}" onclick="pickPerson('${esc(x)}')">${esc(x)}</button>`).join("")}</div>
+ <div class="cats" style="margin-top:15px">${CATS.map(c=>`<div class="cat ${c.id}"><h3>${c.emoji} ${c.name}</h3><div class="slot">${myChoices[c.id]?esc(myChoices[c.id]):"Tap a person below"}</div></div>`).join("")}</div>
+ <p class="small">Valitud: ${Object.keys(myChoices).length}/4</p>`;
+}
+let currentCat="kiss";
+function pickPerson(person){
+ const usedCat=Object.keys(myChoices).find(k=>myChoices[k]===person);
+ if(usedCat) delete myChoices[usedCat];
+ const next=CATS.find(c=>!myChoices[c.id]); if(next)myChoices[next.id]=person;
+ renderPicker();
+}
+function submitChoices(id){
+ if(CATS.some(c=>!myChoices[c.id])||new Set(Object.values(myChoices)).size!==4){alert("Pane kõik 4 inimest nelja erinevasse kategooriasse.");return}
+ hostConn.send({type:"submit",id,choices:myChoices});
+ app.innerHTML=`<div class="hero"><div class="logo">LOCKED 🔒</div><h1>DONE.</h1><p class="sub">Sinu valikud on salvestatud. Vaata suurt ekraani ja oota reveal’i.</p></div>`;
+}
+function boot(){
+ const h=location.hash;
+ if(h.startsWith("#join="))join();else home();
+}
+boot();
+</script>
+</body></html>
