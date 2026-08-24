@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Celebrity Choice Party</title>
+
+<style>
+*{box-sizing:border-box}
+:root{
+  --bg:#090912;--panel:#151526;--panel2:#1d1d34;--purple:#7c5cff;
+  --pink:#ff4fa3;--text:#fff;--muted:#9b9bb5;--green:#47e59a;
+}
+body{
+  margin:0;min-height:100vh;font-family:Inter,Arial,Helvetica,sans-serif;
+  background:radial-gradient(circle at top,#28264f 0,#11111e 45%,#07070d 100%);
+  color:var(--text)
+}
+button,input{font:inherit}
+button{border:0;border-radius:14px;padding:13px 20px;font-weight:800;cursor:pointer;transition:.18s}
+button:hover{transform:translateY(-1px)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.primary{background:var(--purple);color:#fff}
+.secondary{background:#fff;color:#111}
+.danger{background:#ff4f6d;color:#fff}
+.ghost{background:#25253b;color:#fff}
+.container{width:min(1180px,94%);margin:auto;padding:28px 0 70px}
+h1{font-size:clamp(38px,7vw,78px);text-align:center;margin:10px 0 4px;letter-spacing:-2px}
+h2{margin:0 0 12px}
+.subtitle{text-align:center;color:var(--muted);font-size:18px;margin-bottom:30px}
+.panel{background:rgba(21,21,38,.92);border:1px solid rgba(255,255,255,.08);border-radius:26px;padding:24px;box-shadow:0 20px 70px rgba(0,0,0,.3);margin:18px 0}
+.controls{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin:18px 0}
+.mode.active,.round.active{background:var(--purple);color:#fff}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.card{overflow:hidden;border-radius:22px;background:#181827;border:1px solid rgba(255,255,255,.07)}
+.card img{width:100%;height:280px;object-fit:cover;display:block;background:#252535}
+.card-name{text-align:center;padding:14px;font-size:18px;font-weight:900}
+.center{text-align:center}
+.small{font-size:14px;color:var(--muted)}
+.hidden{display:none!important}
+.bigCode{font-size:48px;letter-spacing:10px;font-weight:1000;text-align:center;margin:12px 0}
+#qrcode{display:flex;justify-content:center;background:#fff;padding:14px;border-radius:16px;width:max-content;margin:16px auto}
+#qrcode canvas{display:block}
+.nameInput{width:min(420px,100%);padding:16px 18px;border-radius:14px;border:1px solid #34344d;background:#0e0e18;color:#fff;outline:none}
+.joinRow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.playerList{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:20px 0}
+.playerPill{padding:10px 14px;border-radius:999px;background:#25253b}
+.playerPill.ready{background:rgba(71,229,154,.16);color:var(--green)}
+.status{text-align:center;color:var(--muted);margin:12px}
+.roundTitle{text-align:center;font-size:clamp(24px,4vw,42px);font-weight:1000;margin:8px 0 22px}
+.answerBoard{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px}
+.answerZone{min-height:150px;border:2px dashed #3a3a56;border-radius:20px;padding:12px;background:#11111e}
+.answerZone h3{text-align:center;margin:4px 0 10px}
+.answerZone.kiss h3{color:#ff76bb}.answerZone.marry h3{color:#d0b8ff}.answerZone.kill h3{color:#ff6d7e}.answerZone.fuck h3{color:#ffb36d}
+.choiceItem{display:flex;align-items:center;gap:10px;background:#222238;padding:9px;border-radius:13px;margin:8px 0;cursor:grab}
+.choiceItem img{width:46px;height:46px;border-radius:10px;object-fit:cover}
+.choiceItem.selected{outline:2px solid var(--purple)}
+.choiceButtons{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.choiceButtons button{min-height:58px}
+.revealGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.revealCard{background:#1b1b2d;border-radius:20px;padding:18px}
+.revealCard h3{margin:0 0 12px}
+.resultLine{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.resultLine:last-child{border-bottom:0}
+.waiting{text-align:center;padding:30px;color:var(--muted)}
+#errorBox{white-space:pre-wrap}
+.topbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.badge{padding:8px 12px;border-radius:999px;background:#25253b;color:#ddd}
+.notice{background:#261f3d;border:1px solid #4d3d80;border-radius:16px;padding:14px;color:#ddd}
+hr{border:0;border-top:1px solid rgba(255,255,255,.08);margin:24px 0}
+@media(max-width:850px){
+ .grid4{grid-template-columns:repeat(2,1fr)}
+ .answerBoard{grid-template-columns:repeat(2,1fr)}
+ .choiceButtons{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:520px){
+ .grid4{grid-template-columns:1fr}
+ .card img{height:330px}
+ .answerBoard{grid-template-columns:1fr}
+ .bigCode{font-size:36px;letter-spacing:7px}
+}
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js"></script>
+
+<!-- Firebase Realtime Database. Replace the CONFIG values near the bottom. -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getDatabase, ref, set, update, onValue, get, remove, push
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
+window.FirebaseModules = { initializeApp, getDatabase, ref, set, update, onValue, get, remove, push };
+</script>
+</head>
+
+<body>
+<div class="container">
+  <h1>Celebrity Choice Party</h1>
+  <div class="subtitle">KISS • MARRY • KILL • FUCK — multiplayer party game</div>
+
+  <div id="homeView" class="panel">
+    <div class="center"><h2>CELEBRITY CHOICE PARTY</h2><div class="small">Up to 10 players • join by link or 5-character room code.</div><div class="controls" style="margin-top:22px"><button id="homeHostBtn" class="primary">HOST A GAME</button><button id="homeJoinBtn" class="ghost">JOIN A GAME</button></div></div>
+  </div>
+
+  <div id="setupView" class="panel hidden">
+    <div class="center">
+      <h2>HOST A GAME</h2>
+      <div class="small">Create one room on the big screen. Everyone else joins with the QR code.</div>
+    </div>
+
+    <hr>
+    <h3 class="center">Celebrity pool</h3>
+    <div class="controls">
+      <button class="mode active" data-mode="all">Everyone</button>
+      <button class="mode" data-mode="men">Men</button>
+      <button class="mode" data-mode="women">Women</button>
+      <button class="mode" data-mode="fictional">Fictional</button>
+    </div>
+
+    <h3 class="center">Rounds</h3>
+    <div class="controls">
+      <button class="round active" data-rounds="20">20 ROUNDS</button>
+      <button class="round" data-rounds="50">50 ROUNDS</button>
+      <button class="round" data-rounds="100">MAXIMUM (100)</button>
+    </div>
+
+    <div class="center">
+      <button id="createBtn" class="primary">CREATE GAME</button>
+    </div>
+  </div>
+
+  <div id="joinView" class="panel hidden">
+    <div class="center">
+      <h2>JOIN GAME</h2>
+      <div id="joinRoomLabel" class="small">Enter the 5-character room code.</div>
+      <div class="joinRow" style="margin-top:14px"><input id="roomCodeInput" class="nameInput" maxlength="5" placeholder="ROOM CODE" autocomplete="off" style="text-transform:uppercase"></div>
+      <div class="joinRow">
+        <input id="playerName" class="nameInput" maxlength="24" placeholder="Your name">
+        <button id="joinBtn" class="primary">JOIN</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="lobbyView" class="panel hidden">
+    <div class="topbar">
+      <span class="badge" id="lobbyRoundInfo">LOBBY</span>
+      <span class="badge" id="lobbyModeInfo"></span>
+    </div>
+    <h2 class="center">WAITING ROOM</h2>
+    <div class="bigCode" id="roomCode"></div>
+    <div class="center small">Scan the QR code or enter the room code.</div>
+    <div id="qrcode"></div>
+    <div id="playerList" class="playerList"></div>
+    <div id="hostControls" class="center">
+      <button id="startBtn" class="primary">START THE GAME</button>
+      <div class="small" style="margin-top:10px">Up to 10 players can join this room.</div>
+    </div>
+    <div id="playerWaiting" class="waiting hidden">You're in! Waiting for the host to start…</div>
+  </div>
+
+  <div id="gameView" class="hidden">
+    <div class="panel">
+      <div class="topbar">
+        <span class="badge" id="roundBadge"></span>
+        <span class="badge" id="answerProgress"></span>
+      </div>
+      <div class="roundTitle">Assign all four celebrities</div>
+      <div id="gameCards" class="grid4"></div>
+      <div class="notice center" style="margin-top:18px">
+        Tap a celebrity, then choose their category. Every celebrity must be used exactly once.
+      </div>
+      <div class="choiceButtons">
+        <button data-action="kiss" class="ghost">💋 KISS</button>
+        <button data-action="marry" class="ghost">💍 MARRY</button>
+        <button data-action="kill" class="ghost">🔪 KILL</button>
+        <button data-action="fuck" class="ghost">❤️‍🔥 FUCK</button>
+      </div>
+      <div id="myAnswerBoard" class="answerBoard"></div>
+      <div class="center" style="margin-top:18px">
+        <button id="submitBtn" class="primary" disabled>SUBMIT ANSWERS</button>
+      </div>
+      <div id="submittedMsg" class="waiting hidden">Answer submitted. Waiting for everyone else…</div>
+    </div>
+  </div>
+
+  <div id="hostView" class="hidden">
+    <div class="panel">
+      <div class="topbar">
+        <span class="badge" id="hostRoundBadge"></span>
+        <span class="badge" id="hostProgress"></span>
+      </div>
+      <div class="roundTitle">HOST SCREEN</div>
+      <div id="hostCards" class="grid4"></div>
+      <div class="center" style="margin-top:22px">
+        <button id="revealBtn" class="primary" disabled>REVEAL ANSWERS</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="revealView" class="panel hidden">
+    <div class="roundTitle">✨ REVEAL ✨</div>
+    <div id="revealGrid" class="revealGrid"></div>
+    <div class="center" style="margin-top:22px">
+      <button id="nextRoundBtn" class="primary">NEXT ROUND</button>
+    </div>
+  </div>
+
+  <div id="finishedView" class="panel hidden">
+    <div class="center">
+      <div style="font-size:60px">🏆</div>
+      <h2>GAME OVER</h2>
+      <div class="small">Thanks for playing Celebrity Choice Party.</div>
+      <button class="primary" onclick="location.href=location.pathname">NEW GAME</button>
+    </div>
+  </div>
+
+  <div id="errorBox" class="panel hidden"></div>
+</div>
+
+<script>
+/* ============================================================
+   700 UNIQUE CHOICES
+   300 MEN + 250 WOMEN + 150 FICTIONAL
+   ============================================================ */
+
+const MEN = [
+  "Jude Bellingham",
+  "Chad Michael Murray",
+  "Timothée Chalamet",
+  "Ian Somerhalder",
+  "Clicherik",
+  "Josh Hutcherson",
+  "Theo James",
+  "Joe Keery",
+  "Mads Mikkelsen",
+  "Jacob Elordi",
+  "Harry Styles",
+  "Aidan Gallagher",
+  "James Franco",
+  "Paul Wesley",
+  "Drew Starkey",
+  "Robert Pattinson",
+  "Sam Golbach",
+  "Austin Butler",
+  "Penn Badgley",
+  "Jude Law",
+  "Mason Thames",
+  "Damiano David",
+  "Joseph Morgan",
+  "Tom Holland",
+  "Chris Sturniolo",
+  "Dylan O’Brien",
+  "Henry Cavill",
+  "Cillian Murphy",
+  "Louis Partridge",
+  "Charles Melton",
+  "Leonardo DiCaprio",
+  "Colby Brock",
+  "Chase Stokes",
+  "James Lafferty",
+  "Zayn Malik",
+  "Christian Bale",
+  "Nicholas Galitzine",
+  "Simon Baker",
+  "Aaron Taylor-Johnson",
+  "Ross Lynch",
+  "Jacob Bertrand",
+  "Matt Bomer",
+  "Shawn Mendes",
+  "Joseph Quinn",
+  "Devon Bostick",
+  "Matthew Daddario",
+  "Brad Pitt",
+  "Theo Rossi",
+  "Patrick Schwarzenegger",
+  "Charlie Hunnam",
+  "Hayden Christensen",
+  "Tom Blyth",
+  "Dominic Sherwood",
+  "Dylan Minnette",
+  "Märt Koik",
+  "Paul Mescal",
+  "Jonathan Bailey",
+  "Ben Barnes",
+  "Logan Lerman",
+  "Dacre Montgomery",
+  "Stefan",
+  "Andrew Garfield",
+  "Sam Worthington",
+  "Drew Van Acker",
+  "Niall Horan",
+  "Jamie Dornan",
+  "Mason Gooding",
+  "James Marsden",
+  "Hero Fiennes Tiffin",
+  "Andrei Zevakin",
+  "Charles Leclerc",
+  "Alex Pettyfer",
+  "Sebastian Stan",
+  "Max Irons",
+  "Vinnie Hacker",
+  "Daniel Gillies",
+  "Jack O’Connell",
+  "Justin Bieber",
+  "Cameron Monaghan",
+  "Taylor Zakhar Perez",
+  "Orlando Bloom",
+  "Josh Hartnett",
+  "Freddie Stroma",
+  "Charlie Heaton",
+  "Karl Killing",
+  "Regé-Jean Page",
+  "Ryan Phillippe",
+  "Manu Ríos",
+  "Michael B. Jordan",
+  "Tanner Buchanan",
+  "Jamie Campbell Bower",
+  "Jüri Pootsmann",
+  "Matthew McConaughey",
+  "Nicholas Hoult",
+  "Nick Sturniolo",
+  "Jonathan Rhys Meyers",
+  "Tom Sturridge",
+  "Cody Christian",
+  "Patrick Dempsey",
+  "Benson Boone",
+  "Tyler Hoechlin",
+  "Callum Turner",
+  "Dev Patel",
+  "Jack Falahee",
+  "Charlie Puth",
+  "Drew Fuller",
+  "Froy Gutierrez",
+  "Luca Sabbat",
+  "Jonathan Daviss",
+  "Garrett Hedlund",
+  "Bruno Mars",
+  "Max Carver",
+  "Dominic Fike",
+  "Shane West",
+  "Taylor Lautner",
+  "Matt Lanter",
+  "Luka Bracey",
+  "David Corenswet",
+  "Gregg Sulkin",
+  "Adam Brody",
+  "Chris Evans",
+  "Xavier Samuel",
+  "Charlie Carver",
+  "The Weeknd",
+  "Asa Butterfield",
+  "Alex Roe",
+  "Brandon Flynn",
+  "Francisco Lachowski",
+  "Michael Trevino",
+  "Josh O’Connor",
+  "Freddie Prinze Jr.",
+  "Charlie Cox",
+  "Tommy Cash",
+  "Cooper Koch",
+  "Ben Foster",
+  "Luke Pasqualino",
+  "Sebastian de Souza",
+  "Will Poulter",
+  "Matt Sturniolo",
+  "Alex Wolff",
+  "Jonathan Brandis",
+  "Lewis Hamilton",
+  "Julian Morris",
+  "Jack Gleeson",
+  "Brenton Thwaites",
+  "Ryan Gosling",
+  "Noah Centineo",
+  "Sander Rebane",
+  "Daniel Sharman",
+  "Joe Dempsie",
+  "Jordan Fisher",
+  "George MacKay",
+  "Evan Mock",
+  "Damian Hurley",
+  "Douglas Booth",
+  "Kellan Lutz",
+  "Luka Sabbat",
+  "Jeremy Sumpter",
+  "Eoin Macken",
+  "Colton Haynes",
+  "Alex Meraz",
+  "Aneurin Barnard",
+  "David Beckham",
+  "Stefan Airapetjan",
+  "Marten Kuningas",
+  "Ott Lepland",
+  "Karl-Erik Taukar",
+  "Rasmus Rändvee",
+  "Uku Suviste",
+  "Mikk Saar",
+  "Darren Barnet",
+  "Alberto Rosende",
+  "Alfred Enoch",
+  "Jeremy Irvine",
+  "Alden Ehrenreich",
+  "Lucky Blue Smith",
+  "Jacob Anderson",
+  "Archie Renaux",
+  "Louis Hofmann",
+  "Tom Glynn-Carney",
+  "Fionn Whitehead",
+  "Alex Fitzalan",
+  "Corey Fogelmanis",
+  "Charles Vandervaart",
+  "Louis Hunter",
+  "Lucas Till",
+  "Garrett Clayton",
+  "Alexander Ludwig",
+  "Avan Jogia",
+  "Keiynan Lonsdale",
+  "Drew Ray Tanner",
+  "Chace Crawford",
+  "Ed Westwick",
+  "Sebastian Croft",
+  "Asa Germann",
+  "Gavin Casalegno",
+  "Austin North",
+  "Rudy Pankow",
+  "Charles Esten",
+  "Matthew Noszka",
+  "Milo Manheim",
+  "Cameron Dallas",
+  "Lorenzo Zurzolo",
+  "Michele Morrone",
+  "Simone Susinna",
+  "Alessandro Borghi",
+  "Can Yaman",
+  "Burak Özçivit",
+  "Kerem Bürsin",
+  "Çağatay Ulusoy",
+  "Kıvanç Tatlıtuğ",
+  "Engin Akyürek",
+  "Barış Arduç",
+  "Aras Bulut İynemli",
+  "Mert Ramazan Demir",
+  "Akın Akınözü",
+  "Burak Deniz",
+  "Alp Navruz",
+  "Kerem Alışık",
+  "Tolga Sarıtaş",
+  "Çağlar Ertuğrul",
+  "İbrahim Çelikkol",
+  "Birkan Sokullu",
+  "Furkan Andıç",
+  "Onur Tuna",
+  "Dan Stevens",
+  "Theo Stevenson",
+  "Ben Hardy",
+  "George Blagden",
+  "Sam Heughan",
+  "Richard Madden",
+  "Kit Harington",
+  "Nikolaj Coster-Waldau",
+  "Alfie Allen",
+  "Jack Lowden",
+  "Will Harrison",
+  "Taron Egerton",
+  "Harris Dickinson",
+  "Leo Woodall",
+  "Connor Swindells",
+  "Freddie Highmore",
+  "Thomas Doherty",
+  "Félix Mallard",
+  "Tyler Posey",
+  "Steven R. McQueen",
+  "Chris Wood",
+  "Michael Malarkey",
+  "Zach Roerig",
+  "Matt Czuchry",
+  "Jesse Williams",
+  "Eric Dane",
+  "Justin Chambers",
+  "Stephen Amell",
+  "Robbie Amell",
+  "Ian Harding",
+  "Keegan Allen",
+  "Tyler Blackburn",
+  "Brant Daugherty",
+  "Ryan Guzman",
+  "Daniel Ezra",
+  "Wesley Morgan",
+  "Charles Michael Davis",
+  "Michael Ealy",
+  "Morris Chestnut",
+  "Shemar Moore",
+  "Jesse Metcalfe",
+  "Jensen Ackles",
+  "Jared Padalecki",
+  "Misha Collins",
+  "Jared Keeso",
+  "Cory Monteith",
+  "Kevin McHale",
+  "Darren Criss",
+  "Chord Overstreet",
+  "Matthew Morrison",
+  "Grant Gustin",
+  "Dylan Sprayberry",
+  "Brett Dalton",
+  "Chris Zylka",
+  "Kris Holden-Ried",
+  "Ethan Peck",
+  "William Moseley",
+  "Luke Newton",
+  "Corey Mylchreest",
+  "Jonathan Gresham",
+  "Freddie Fox",
+  "Luke Thompson",
+  "Rene-Jean Page",
+  "James McAvoy",
+  "Henry Golding",
+  "Chris Pine",
+  "Matthew Goode",
+  "James Norton",
+  "Jeremy Renner",
+  "Ben Robson",
+  "Jack Quaid",
+  "Eric Balfour",
+  "David Harbour",
+  "Garrett Dillahunt",
+  "Josh Duhamel"
+];
+const WOMEN = [
+  "Megan Fox",
+  "Kristen Stewart",
+  "Kaya Scodelario",
+  "Nina Dobrev",
+  "Blake Lively",
+  "Adriana Lima",
+  "Emma Watson",
+  "Angelina Jolie",
+  "Phoebe Tonkin",
+  "Sydney Sweeney",
+  "Lucy Hale",
+  "Leighton Meester",
+  "Lily Collins",
+  "Mila Kunis",
+  "Shay Mitchell",
+  "Ashley Benson",
+  "Troian Bellisario",
+  "Janel Parrish",
+  "Sasha Pieterse",
+  "Ruby Rose",
+  "Victoria Justice",
+  "Emma Roberts",
+  "Rachel McAdams",
+  "Lindsay Lohan",
+  "Amanda Seyfried",
+  "Anne Hathaway",
+  "Keira Knightley",
+  "Jessica Alba",
+  "Jessica Biel",
+  "Eva Green",
+  "Scarlett Johansson",
+  "Natalie Portman",
+  "Margot Robbie",
+  "Ana de Armas",
+  "Alexandra Daddario",
+  "Eiza González",
+  "Monica Bellucci",
+  "Eva Mendes",
+  "Salma Hayek",
+  "Penélope Cruz",
+  "Jennifer Connelly",
+  "Liv Tyler",
+  "Winona Ryder",
+  "Fairuza Balk",
+  "Rose McGowan",
+  "Milla Jovovich",
+  "Kate Beckinsale",
+  "Charlize Theron",
+  "Halle Berry",
+  "Zendaya",
+  "Hunter Schafer",
+  "Alexa Demie",
+  "Maude Apatow",
+  "Barbie Ferreira",
+  "Jenna Ortega",
+  "Maya Hawke",
+  "Natalia Dyer",
+  "Millie Bobby Brown",
+  "Sadie Sink",
+  "Grace Van Dien",
+  "Camila Mendes",
+  "Madelyn Cline",
+  "Madison Bailey",
+  "Carlacia Grant",
+  "Lili Reinhart",
+  "Madelaine Petsch",
+  "Camila Morrone",
+  "Olivia Wilde",
+  "Taylor Momsen",
+  "Jessica Szohr",
+  "Michelle Trachtenberg",
+  "Katie Cassidy",
+  "Dianna Agron",
+  "Mischa Barton",
+  "Rachel Bilson",
+  "Sophia Bush",
+  "Hilarie Burton",
+  "Danneel Ackles",
+  "Bethany Joy Lenz",
+  "Mary Elizabeth Winstead",
+  "Lauren Cohan",
+  "Sarah Wayne Callies",
+  "Robin Tunney",
+  "Sarah Michelle Gellar",
+  "Eliza Dushku",
+  "Bianca Lawson",
+  "Candice King",
+  "Kat Graham",
+  "Claire Holt",
+  "Persia White",
+  "Kayla Ewell",
+  "Malese Jow",
+  "Willa Holland",
+  "Torrey DeVitto",
+  "Lindsey Shaw",
+  "Hannah Murray",
+  "Kathryn Prescott",
+  "Lily Loveless",
+  "April Pearson",
+  "Freya Mavor",
+  "Dakota Blue Richards",
+  "Julia Stiles",
+  "Larisa Oleynik",
+  "Gabrielle Union",
+  "Amanda Bynes",
+  "Elisha Cuthbert",
+  "Jessica Stroup",
+  "Jessica Henwick",
+  "Elizabeth Olsen",
+  "Brie Larson",
+  "Florence Pugh",
+  "Hailee Steinfeld",
+  "Zoe Saldana",
+  "Karen Gillan",
+  "Hayley Atwell",
+  "Cobie Smulders",
+  "Gemma Chan",
+  "Pom Klementieff",
+  "Morena Baccarin",
+  "Jennifer Aniston",
+  "Jennifer Garner",
+  "Reese Witherspoon",
+  "Cameron Diaz",
+  "Drew Barrymore",
+  "Kate Hudson",
+  "Britney Spears",
+  "Christina Aguilera",
+  "Rihanna",
+  "Beyoncé",
+  "Lana Del Rey",
+  "Dua Lipa",
+  "Sabrina Carpenter",
+  "Miley Cyrus",
+  "Bella Hadid",
+  "Emily Ratajkowski",
+  "Gisele Bündchen",
+  "Rosie Huntington-Whiteley",
+  "Irina Shayk",
+  "Megan Boone",
+  "Phoebe Dynevor",
+  "Lily-Rose Depp",
+  "Daisy Edgar-Jones",
+  "Anya Taylor-Joy",
+  "Jodie Comer",
+  "Ella Purnell",
+  "Suki Waterhouse",
+  "Alexa Chung",
+  "Cara Delevingne",
+  "Victoria Pedretti",
+  "Ella Balinska",
+  "Daisy Ridley",
+  "Gemma Arterton",
+  "Naomi Scott",
+  "Lily James",
+  "Lucy Boynton",
+  "Imogen Poots",
+  "Bel Powley",
+  "Thomasin McKenzie",
+  "Mia Goth",
+  "Elle Fanning",
+  "Dakota Fanning",
+  "Chloë Grace Moretz",
+  "Joey King",
+  "McKenna Grace",
+  "Kiernan Shipka",
+  "Peyton List",
+  "Bailee Madison",
+  "Lana Condor",
+  "Sofia Wylie",
+  "Olivia Holt",
+  "Dove Cameron",
+  "Sofia Carson",
+  "China Anne McClain",
+  "Debby Ryan",
+  "Bridgit Mendler",
+  "Isabela Merced",
+  "Adria Arjona",
+  "Rachel Zegler",
+  "Mikey Madison",
+  "Ayo Edebiri",
+  "Storm Reid",
+  "Yara Shahidi",
+  "Marsai Martin",
+  "Sarah Paulson",
+  "Taissa Farmiga",
+  "Vera Farmiga",
+  "Lily Rabe",
+  "Billie Lourd",
+  "Neve Campbell",
+  "Courteney Cox",
+  "Hayden Panettiere",
+  "Melissa Barrera",
+  "Tati Gabrielle",
+  "Ambyr Childers",
+  "Phoebe Waller-Bridge",
+  "Gugu Mbatha-Raw",
+  "Naomi Watts",
+  "Felicity Jones",
+  "Claire Foy",
+  "Rebecca Ferguson",
+  "Vanessa Kirby",
+  "Elizabeth Debicki",
+  "Jodie Turner-Smith",
+  "Naomie Harris",
+  "Thandiwe Newton",
+  "Ruth Negga",
+  "Danai Gurira",
+  "Letitia Wright",
+  "Tessa Thompson",
+  "Zazie Beetz",
+  "Jurnee Smollett",
+  "Rachel Weisz",
+  "Sienna Miller",
+  "Léa Seydoux",
+  "Kate Winslet",
+  "Jessica Chastain",
+  "Olivia Cooke",
+  "Cailee Spaeny",
+  "Dafne Keen",
+  "Freya Allan",
+  "Emma Corrin",
+  "Nicola Coughlan",
+  "Simone Ashley",
+  "Charithra Chandran",
+  "Claudia Jessie",
+  "Maisie Williams",
+  "Bella Ramsey",
+  "Isabelle Huppert",
+  "Rosamund Pike",
+  "Carey Mulligan",
+  "Saoirse Ronan",
+  "Jessie Buckley",
+  "Rachel Brosnahan",
+  "Alexandra Shipp",
+  "Jenna Coleman",
+  "Emilia Clarke",
+  "Natalie Dormer",
+  "Rose Leslie",
+  "Ruth Wilson",
+  "Morfydd Clark",
+  "Ella Hunt",
+  "Samantha Barks",
+  "Margaret Qualley",
+  "Emma Mackey",
+  "Anya Chalotra",
+  "Nell Tiger Free",
+  "Synnøve Karlsen",
+  "Alicia Vikander",
+  "Hannah Dodd",
+  "Adelaide Kane"
+];
+const FICTIONAL = [
+  "Flynn Rider",
+  "Aladdin",
+  "Prince Naveen",
+  "Prince Eric",
+  "Li Shang",
+  "Hercules",
+  "Tarzan",
+  "Milo Thatch",
+  "Kuzco",
+  "Jim Hawkins",
+  "Jack Sparrow",
+  "Will Turner",
+  "Damon Salvatore",
+  "Stefan Salvatore",
+  "Edward Cullen",
+  "Jacob Black",
+  "Emmett Cullen",
+  "Jasper Hale",
+  "Carlisle Cullen",
+  "Klaus Mikaelson",
+  "Elijah Mikaelson",
+  "Kol Mikaelson",
+  "Kai Parker",
+  "Derek Hale",
+  "Stiles Stilinski",
+  "Scott McCall",
+  "Theo Raeken",
+  "Isaac Lahey",
+  "Liam Dunbar",
+  "Peter Hale",
+  "Jackson Whittemore",
+  "Matt Donovan",
+  "Enzo St. John",
+  "Damon Torrance",
+  "Hardin Scott",
+  "Noah Flynn",
+  "Peter Kavinsky",
+  "John Ambrose McClaren",
+  "Conrad Fisher",
+  "Jeremiah Fisher",
+  "Cameron Briel",
+  "Rafe Cameron",
+  "John B. Routledge",
+  "JJ Maybank",
+  "Pope Heyward",
+  "Topper Thornton",
+  "Ward Cameron",
+  "Barry Allen",
+  "Oliver Queen",
+  "Roy Harper",
+  "Dick Grayson",
+  "Jason Todd",
+  "Bruce Wayne",
+  "Clark Kent",
+  "Diana Prince",
+  "Arthur Curry",
+  "Hal Jordan",
+  "Wally West",
+  "Oliver Wood",
+  "Cedric Diggory",
+  "Draco Malfoy",
+  "Harry Potter",
+  "Ron Weasley",
+  "Fred Weasley",
+  "George Weasley",
+  "Sirius Black",
+  "Remus Lupin",
+  "Barty Crouch Jr.",
+  "Newt Scamander",
+  "Theseus Scamander",
+  "Tom Riddle",
+  "Lucius Malfoy",
+  "James Potter",
+  "Regulus Black",
+  "Peeta Mellark",
+  "Gale Hawthorne",
+  "Finnick Odair",
+  "Haymitch Abernathy",
+  "Cato",
+  "Jace Herondale",
+  "Alec Lightwood",
+  "Magnus Bane",
+  "Will Herondale",
+  "Jem Carstairs",
+  "Augustus Waters",
+  "Isaac",
+  "Tris Prior",
+  "Four",
+  "Logan Huntzberger",
+  "Jess Mariano",
+  "Dean Forester",
+  "Mitchum Huntzberger",
+  "Luke Danes",
+  "Chuck Bass",
+  "Nate Archibald",
+  "Dan Humphrey",
+  "Carter Baizen",
+  "Rufus Humphrey",
+  "Archie Andrews",
+  "Jughead Jones",
+  "Reggie Mantle",
+  "Jason Blossom",
+  "Sweet Pea",
+  "Fangs Fogarty",
+  "Toni Topaz",
+  "Veronica Lodge",
+  "Betty Cooper",
+  "Cheryl Blossom",
+  "Serena van der Woodsen",
+  "Blair Waldorf",
+  "Spencer Hastings",
+  "Hanna Marin",
+  "Aria Montgomery",
+  "Emily Fields",
+  "Alison DiLaurentis",
+  "Mona Vanderwaal",
+  "Effy Stonem",
+  "Cook",
+  "Freddie McClair",
+  "James Cook",
+  "Tony Stonem",
+  "Sid Jenkins",
+  "Rich Hardbeck",
+  "Naomi Campbell",
+  "Cassie Ainsworth",
+  "Emily Fitch",
+  "Katie Fitch",
+  "Manny Santos",
+  "Jenna Hamilton",
+  "Matty McKibben",
+  "Jake Rosati",
+  "Nick Nelson",
+  "Charlie Spring",
+  "Tara Jones",
+  "Darcy Olsson",
+  "Elle Argent",
+  "Tao Xu",
+  "Isaac Henderson",
+  "Adam Groff",
+  "Otis Milburn",
+  "Eric Effiong",
+  "Jackson Marchetti",
+  "Cal Stone",
+  "Ben Gross",
+  "Paxton Hall-Yoshida",
+  "Devi Vishwakumar",
+  "Mindy Chen",
+  "Kamala Khan",
+  "Wanda Maximoff",
+  "Natasha Romanoff"
+];
+
+const ALL = [...MEN, ...WOMEN, ...FICTIONAL];
+
+const CATEGORIES = {
+  kiss: {label:"💋 KISS", cls:"kiss"},
+  marry: {label:"💍 MARRY", cls:"marry"},
+  kill: {label:"🔪 KILL", cls:"kill"},
+  fuck: {label:"❤️‍🔥 FUCK", cls:"fuck"}
+};
+
+const MAX_ROUNDS = 100;
+const MAX_PLAYERS = 10;
+
+/* ============================================================
+   FIREBASE CONFIG
+   Replace these six values with your Firebase Web App config.
+   See SETUP.md.
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "PASTE_YOUR_FIREBASE_API_KEY",
+  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://PASTE_YOUR_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "PASTE_YOUR_PROJECT",
+  storageBucket: "PASTE_YOUR_PROJECT.firebasestorage.app",
+  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
+  appId: "PASTE_YOUR_APP_ID"
+};
+
+let db = null;
+let roomRef = null;
+let roomCode = null;
+let isHost = false;
+let playerId = null;
+let playerName = "";
+let mode = "all";
+let totalRounds = 20;
+let selectedCelebrity = null;
+let myAssignments = {};
+let roomData = null;
+
+const $ = id => document.getElementById(id);
+
+function show(id, yes=true){ $(id).classList.toggle("hidden", !yes); }
+function poolForMode(m){
+  if(m==="men") return MEN;
+  if(m==="women") return WOMEN;
+  if(m==="fictional") return FICTIONAL;
+  return ALL;
+}
+function shuffle(a){
+  const r=[...a];
+  for(let i=r.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [r[i],r[j]]=[r[j],r[i]];
+  }
+  return r;
+}
+function randomCode(){
+  const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({length:5},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+}
+function safeId(){
+  return "p_"+Math.random().toString(36).slice(2)+Date.now().toString(36);
+}
+function firebaseReady(){
+  return firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith("PASTE_");
+}
+function requireFirebase(){
+  if(!firebaseReady()){
+    throw new Error("Firebase is not configured yet. Open SETUP.md and paste your Firebase Web App config into index.html.");
+  }
+  if(!db){
+    const F=window.FirebaseModules;
+    const app=F.initializeApp(firebaseConfig);
+    db=F.getDatabase(app);
+  }
+}
+function imageUrl(name){
+  return "https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=pageimages&piprop=thumbnail&pithumbsize=700&redirects=1&titles="+encodeURIComponent(name);
+}
+async function getImage(name){
+  try{
+    const res=await fetch(imageUrl(name));
+    const data=await res.json();
+    const page=Object.values(data?.query?.pages||{})[0];
+    if(page?.thumbnail?.source) return page.thumbnail.source;
+  }catch(e){}
+  const initials=name.split(/\s+/).map(x=>x[0]).slice(0,2).join("").toUpperCase();
+  return "data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="700"><rect width="100%" height="100%" fill="#252535"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="100" font-family="Arial">${initials}</text></svg>`
+  );
+}
+async function hydrateChoices(names){
+  return Promise.all(names.map(async name=>({name,image:await getImage(name)})));
+}
+function chosenNames(){
+  return roomData?.choices?.map(c=>c.name)||[];
+}
+function makeNewChoices(){
+  const pool=poolForMode(roomData.mode);
+  const used=(roomData.usedCombos||[]);
+  const usedSet=new Set(used);
+  for(let tries=0;tries<50;tries++){
+    const names=shuffle(pool).slice(0,4);
+    const key=[...names].sort().join("|");
+    if(!usedSet.has(key)) return {names,key};
+  }
+  const names=shuffle(pool).slice(0,4);
+  return {names,key:[...names].sort().join("|")};
+}
+function renderLobby(){
+  $("roomCode").textContent=roomCode;
+  $("lobbyRoundInfo").textContent=`${roomData.totalRounds} ROUNDS`;
+  $("lobbyModeInfo").textContent=roomData.mode.toUpperCase();
+  const players=Object.values(roomData.players||{});
+  $("playerList").innerHTML=players.map(p=>`<span class="playerPill ${p.ready?'ready':''}">${escapeHtml(p.name)} ${p.ready?'✓':''}</span>`).join("");
+  show("hostControls",isHost);
+  show("playerWaiting",!isHost);
+  if(isHost){
+    $("startBtn").disabled=players.filter(p=>!p.host).length<1;
+  }
+}
+function renderQRCode(){
+  const joinUrl=location.origin+location.pathname+"?join="+encodeURIComponent(roomCode);
+  $("qrcode").innerHTML="";
+  QRCode.toCanvas(joinUrl,{width:230,margin:2,errorCorrectionLevel:"M"},(err,canvas)=>{
+    if(err){ $("qrcode").innerHTML="<div>QR error: "+escapeHtml(err.message)+"</div>"; return; }
+    $("qrcode").appendChild(canvas);
+  });
+}
+function renderCards(containerId,choices){
+  const el=$(containerId);
+  el.innerHTML="";
+  for(const c of choices){
+    const card=document.createElement("div");
+    card.className="card";
+    card.innerHTML=`<img src="${escapeAttr(c.image)}" alt=""><div class="card-name">${escapeHtml(c.name)}</div>`;
+    el.appendChild(card);
+  }
+}
+function renderPlayerGame(){
+  const choices=roomData.choices||[];
+  $("roundBadge").textContent=`ROUND ${roomData.round} / ${roomData.totalRounds}`;
+  const answered=Object.keys(roomData.answers?.[roomData.round]||{}).length;
+  const total=Object.values(roomData.players||{}).filter(p=>!p.host).length;
+  $("answerProgress").textContent=`${answered} / ${total} ANSWERED`;
+  renderCards("gameCards",choices);
+  renderAssignmentBoard();
+  $("submitBtn").disabled=Object.keys(myAssignments).length!==4;
+}
+function renderHostGame(){
+  $("hostRoundBadge").textContent=`ROUND ${roomData.round} / ${roomData.totalRounds}`;
+  const answered=Object.keys(roomData.answers?.[roomData.round]||{}).length;
+  const total=Object.values(roomData.players||{}).filter(p=>!p.host).length;
+  $("hostProgress").textContent=`${answered} / ${total} ANSWERED`;
+  renderCards("hostCards",roomData.choices||[]);
+  $("revealBtn").disabled=total===0 || answered<total;
+}
+function renderAssignmentBoard(){
+  const board=$("myAnswerBoard");
+  board.innerHTML="";
+  for(const key of Object.keys(CATEGORIES)){
+    const zone=document.createElement("div");
+    zone.className="answerZone "+CATEGORIES[key].cls;
+    zone.innerHTML=`<h3>${CATEGORIES[key].label}</h3>`;
+    const names=Object.entries(myAssignments).filter(([,v])=>v===key).map(([n])=>n);
+    for(const name of names){
+      const c=(roomData.choices||[]).find(x=>x.name===name);
+      const item=document.createElement("div");
+      item.className="choiceItem";
+      item.innerHTML=`<img src="${escapeAttr(c?.image||"")}"><span>${escapeHtml(name)}</span>`;
+      item.onclick=()=>{delete myAssignments[name];renderAssignmentBoard();renderPlayerGame();};
+      zone.appendChild(item);
+    }
+    board.appendChild(zone);
+  }
+}
+function selectCelebrity(name){
+  selectedCelebrity=name;
+  document.querySelectorAll("#gameCards .card").forEach(card=>card.classList.remove("selected"));
+  const cards=[...document.querySelectorAll("#gameCards .card")];
+  const idx=(roomData.choices||[]).findIndex(x=>x.name===name);
+  if(cards[idx]) cards[idx].classList.add("selected");
+}
+function assign(category){
+  if(!selectedCelebrity) return;
+  for(const [name,val] of Object.entries(myAssignments)){
+    if(val===category) delete myAssignments[name];
+  }
+  myAssignments[selectedCelebrity]=category;
+  selectedCelebrity=null;
+  renderPlayerGame();
+}
+function submitAnswers(){
+  if(Object.keys(myAssignments).length!==4) return;
+  requireFirebase();
+  const answersRef=window.FirebaseModules.ref(db,`rooms/${roomCode}/answers/${roomData.round}/${playerId}`);
+  window.FirebaseModules.set(answersRef,myAssignments);
+  $("submitBtn").disabled=true;
+  show("submittedMsg",true);
+}
+function renderReveal(){
+  show("revealView",true);
+  const answers=roomData.answers?.[roomData.round]||{};
+  const players=roomData.players||{};
+  const grid=$("revealGrid");
+  grid.innerHTML="";
+  for(const [pid,ans] of Object.entries(answers)){
+    const p=players[pid];
+    const card=document.createElement("div");
+    card.className="revealCard";
+    card.innerHTML=`<h3>${escapeHtml(p?.name||"Player")}</h3>`;
+    for(const key of Object.keys(CATEGORIES)){
+      const person=Object.entries(ans).find(([,v])=>v===key)?.[0]||"—";
+      const line=document.createElement("div");
+      line.className="resultLine";
+      line.innerHTML=`<span>${CATEGORIES[key].label}</span><strong>${escapeHtml(person)}</strong>`;
+      card.appendChild(line);
+    }
+    grid.appendChild(card);
+  }
+}
+function showState(state){
+  show("homeView",state==="home");
+  show("setupView",state==="setup");
+  show("joinView",state==="join");
+  show("lobbyView",state==="lobby");
+  show("gameView",state==="playing" && !isHost);
+  show("hostView",state==="playing" && isHost);
+  if(state!=="reveal") show("revealView",false);
+  show("finishedView",state==="finished");
+}
+function handleRoom(room){
+  roomData=room;
+  if(!roomData) return;
+  if(roomData.status==="lobby"){
+    showState("lobby"); renderLobby(); renderQRCode();
+  }else if(roomData.status==="playing"){
+    showState("playing");
+    if(isHost) renderHostGame(); else renderPlayerGame();
+  }else if(roomData.status==="reveal"){
+    showState("playing");
+    if(isHost) renderHostGame(); else renderPlayerGame();
+    renderReveal();
+    if(isHost) $("nextRoundBtn").textContent=roomData.round>=roomData.totalRounds?"FINISH GAME":"NEXT ROUND";
+  }else if(roomData.status==="finished"){
+    showState("finished");
+  }
+}
+function subscribe(){
+  roomRef=window.FirebaseModules.ref(db,`rooms/${roomCode}`);
+  window.FirebaseModules.onValue(roomRef,snap=>handleRoom(snap.val()));
+}
+async function createGame(){
+  try{
+    requireFirebase();
+    roomCode=randomCode();
+    mode=document.querySelector(".mode.active").dataset.mode;
+    totalRounds=Number(document.querySelector(".round.active").dataset.rounds);
+    const names=shuffle(poolForMode(mode)).slice(0,4);
+    const choices=await hydrateChoices(names);
+    const hostId=safeId();
+    playerId=hostId;
+    playerName="HOST";
+    isHost=true;
+    const data={
+      hostId,mode,totalRounds,round:1,status:"lobby",
+      players:{[hostId]:{name:"HOST",ready:true,host:true}},
+      choices,answers:{},usedCombos:[[...names].sort().join("|")]
+    };
+    await window.FirebaseModules.set(window.FirebaseModules.ref(db,`rooms/${roomCode}`),data);
+    localStorage.setItem("ccp_host_room",roomCode);
+    subscribe();
+  }catch(e){showError(e);}
+}
+async function joinGame(){
+  try{
+    requireFirebase();
+    const name=$("playerName").value.trim();
+    if(!name) return;
+    playerName=name.slice(0,24);
+    const snap=await window.FirebaseModules.get(window.FirebaseModules.ref(db,`rooms/${roomCode}`));
+    if(!snap.exists()) throw new Error("That room does not exist.");
+    const room=snap.val();
+    if(room.status!=="lobby") throw new Error("This game has already started.");
+    const currentPlayers=Object.keys(room.players||{}).length;
+    if(currentPlayers>=MAX_PLAYERS) throw new Error("This room is full. Maximum 10 players.");
+    playerId=safeId();
+    isHost=false;
+    await window.FirebaseModules.set(window.FirebaseModules.ref(db,`rooms/${roomCode}/players/${playerId}`),{name:playerName,ready:true,host:false});
+    localStorage.setItem("ccp_player_room",roomCode);
+    localStorage.setItem("ccp_player_id",playerId);
+    subscribe();
+  }catch(e){showError(e);}
+}
+async function startGame(){
+  if(!isHost) return;
+  try{
+    await window.FirebaseModules.update(window.FirebaseModules.ref(db,`rooms/${roomCode}`),{status:"playing"});
+  }catch(e){showError(e);}
+}
+async function reveal(){
+  if(!isHost) return;
+  try{
+    const answers=roomData.answers?.[roomData.round]||{};
+    const total=Object.values(roomData.players||{}).filter(p=>!p.host).length;
+    if(total===0 || Object.keys(answers).length<total) return;
+    await window.FirebaseModules.update(window.FirebaseModules.ref(db,`rooms/${roomCode}`),{status:"reveal"});
+  }catch(e){showError(e);}
+}
+async function nextRound(){
+  if(!isHost) return;
+  try{
+    if(roomData.round>=roomData.totalRounds){
+      await window.FirebaseModules.update(window.FirebaseModules.ref(db,`rooms/${roomCode}`),{status:"finished"});
+      return;
+    }
+    const {names,key}=makeNewChoices();
+    const choices=await hydrateChoices(names);
+    const used=[...(roomData.usedCombos||[]),key];
+    await window.FirebaseModules.update(window.FirebaseModules.ref(db,`rooms/${roomCode}`),{
+      round:roomData.round+1,status:"playing",choices,usedCombos:used
+    });
+    await window.FirebaseModules.remove(window.FirebaseModules.ref(db,`rooms/${roomCode}/answers/${roomData.round+1}`));
+    myAssignments={};
+  }catch(e){showError(e);}
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+function escapeAttr(s){return escapeHtml(s);}
+function showError(e){
+  console.error(e);
+  $("errorBox").textContent="Something went wrong:\\n\\n"+(e?.message||e);
+  show("errorBox",true);
+}
+
+/* Events */
+document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".mode").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+});
+document.querySelectorAll(".round").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".round").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+});
+$("homeHostBtn").onclick=()=>showState("setup");
+$("homeJoinBtn").onclick=()=>showState("join");
+$("createBtn").onclick=createGame;
+$("joinBtn").onclick=()=>{
+  const code=$("roomCodeInput").value.trim().toUpperCase();
+  if(!code) return showError(new Error("Enter the room code."));
+  roomCode=code;
+  $("joinRoomLabel").textContent=`Room ${roomCode}`;
+  joinGame();
+};
+$("startBtn").onclick=startGame;
+$("revealBtn").onclick=reveal;
+$("nextRoundBtn").onclick=nextRound;
+$("submitBtn").onclick=submitAnswers;
+document.querySelectorAll("[data-action]").forEach(b=>b.onclick=()=>assign(b.dataset.action));
+document.addEventListener("click",e=>{
+  const card=e.target.closest("#gameCards .card");
+  if(card){
+    const name=card.querySelector(".card-name")?.textContent;
+    if(name) selectCelebrity(name);
+  }
+});
+
+/* Auto-open JOIN when the QR URL contains ?join=ROOMCODE */
+(async function init(){
+  try{
+    const params=new URLSearchParams(location.search);
+    const join=params.get("join");
+    if(join){
+      roomCode=join.toUpperCase();
+      $("roomCodeInput").value=roomCode;
+      $("joinRoomLabel").textContent=`Room ${roomCode}`;
+      showState("join");
+    }else{
+      showState("home");
+    }
+  }catch(e){showError(e);}
+})();
+</script>
+</body>
+</html>
